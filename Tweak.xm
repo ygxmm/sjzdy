@@ -7,6 +7,19 @@
 
 - (NSTimeInterval)timeIntervalSince1970 {
     NSTimeInterval orig = %orig;
+    static int probeCount = 0;
+    if (probeCount < 10) {
+        probeCount++;
+        NSString *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+        NSString *log = [docs stringByAppendingPathComponent:@"zdysj_probe.log"];
+        NSString *line = [NSString stringWithFormat:@"cls=%s orig=%f enabled=%d offset=%ld\n",
+            object_getClassName(self), orig,
+            [[ZDYSJManager shared] isEnabled],
+            (long)[[ZDYSJManager shared] offsetHours]];
+        NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:log];
+        if (!fh) { [line writeToFile:log atomically:YES encoding:NSUTF8StringEncoding error:nil]; }
+        else { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; [fh closeFile]; }
+    }
     if (![[ZDYSJManager shared] isEnabled]) {
         return orig;
     }
