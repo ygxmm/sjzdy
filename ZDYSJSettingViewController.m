@@ -225,6 +225,7 @@ typedef NS_ENUM(NSInteger, ZDYSJSettingItemType) {
         tf.placeholder = item.placeholder;
         tf.attributedPlaceholder = [[NSAttributedString alloc] initWithString:item.placeholder ?: @"" attributes:@{NSForegroundColorAttributeName : [UIColor lightGrayColor]}];
         NSInteger h = [[NSUserDefaults standardUserDefaults] integerForKey:item.key];
+        if ([item.key isEqualToString:@"ZDYSJTargetHour"] && h == 0) h = 12;
         tf.text = [NSString stringWithFormat:@"%ld", (long)h];
         tf.keyboardType = UIKeyboardTypeNumbersAndPunctuation;
         tf.textAlignment = NSTextAlignmentRight;

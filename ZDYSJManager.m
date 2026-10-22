@@ -55,6 +55,19 @@ static NSString *const kZDYSJOffsetHours = @"ZDYSJOffsetHours";
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
+- (NSInteger)targetHour {
+    NSInteger h = [[NSUserDefaults standardUserDefaults] integerForKey:@"ZDYSJTargetHour"];
+    if (h < 0 || h > 23) h = 12;
+    return h;
+}
+
+- (void)setTargetHour:(NSInteger)hour {
+    if (hour < 0) hour = 0;
+    if (hour > 23) hour = 23;
+    [[NSUserDefaults standardUserDefaults] setInteger:hour forKey:@"ZDYSJTargetHour"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
 - (void)setOffsetHours:(NSInteger)hours {
     [[NSUserDefaults standardUserDefaults] setInteger:hours forKey:kZDYSJOffsetHours];
     [[NSUserDefaults standardUserDefaults] synchronize];

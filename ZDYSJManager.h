@@ -7,6 +7,8 @@
 + (void)presentSettings;
 - (BOOL)isEnabled;
 - (NSInteger)offsetHours;
+- (NSInteger)targetHour;
+- (void)setTargetHour:(NSInteger)hour;
 - (void)setEnabled:(BOOL)enabled;
 - (void)setOffsetHours:(NSInteger)hours;
 @end

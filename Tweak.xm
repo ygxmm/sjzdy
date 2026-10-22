@@ -9,17 +9,25 @@
 
 - (NSTimeInterval)timeIntervalSince1970 {
     NSTimeInterval orig = %orig;
-    if (![[ZDYSJManager shared] isEnabled]) {
-        return orig;
-    }
+    if (![[ZDYSJManager shared] isEnabled]) return orig;
+
     struct timeval tv;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     syscall(SYS_gettimeofday, &tv, NULL);
 #pragma clang diagnostic pop
     NSTimeInterval realNow = (NSTimeInterval)tv.tv_sec + (NSTimeInterval)tv.tv_usec / 1e6;
+
     if (fabs(orig - realNow) < 60.0) {
-        return orig + ([[ZDYSJManager shared] offsetHours] * 3600.0);
+        NSInteger targetHour = [[ZDYSJManager shared] targetHour];
+        NSCalendar *cal = [NSCalendar currentCalendar];
+        NSDateComponents *comp = [cal components:(NSCalendarUnitYear | NSCalendarUnitMonth | NSCalendarUnitDay)
+            fromDate:[NSDate dateWithTimeIntervalSince1970:realNow]];
+        comp.hour = targetHour;
+        comp.minute = 0;
+        comp.second = 0;
+        NSDate *target = [cal dateFromComponents:comp];
+        return [target timeIntervalSince1970];
     }
     return orig;
 }
