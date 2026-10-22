@@ -20,10 +20,10 @@ jobs:
       - name: Build
         run: |
           make clean
-          make package SCHEME=rootless
+          make package SCHEME=roothide
 
       - name: Upload deb
         uses: actions/upload-artifact@v4
         with:
-          name: zdysj-deb
+          name: zdysj-deb-roothide
           path: packages/*.deb
