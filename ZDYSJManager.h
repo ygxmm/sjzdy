@@ -2,6 +2,7 @@
 
 @interface ZDYSJManager : NSObject
 + (instancetype)shared;
++ (void)presentSettings;
 - (BOOL)isEnabled;
 - (NSInteger)offsetHours;
 - (void)setEnabled:(BOOL)enabled;
