@@ -2,7 +2,7 @@ name: Build zdysj
 
 on:
   push:
-    branches: [main]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -13,17 +13,34 @@ jobs:
 
       - name: Setup Theos
         run: |
-          brew install ldid xz
-          git clone --recursive https://github.com/theos/theos.git $HOME/theos
-          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+          export THEOS=$HOME/theos
+          git clone --recursive https://github.com/theos/theos.git $THEOS
+          echo "THEOS=$THEOS" >> $GITHUB_ENV
 
-      - name: Build
+      - name: Download iOS SDKs
+        run: |
+          if [ -z "$(ls $HOME/theos/sdks 2>/dev/null)" ]; then
+            cd $HOME/theos/sdks
+            curl -sL -o sdks.zip https://github.com/theos/sdks/archive/refs/heads/master.zip
+            TMPDIR=$(mktemp -d)
+            unzip -q sdks.zip -d "$TMPDIR"
+            mv "$TMPDIR"/sdks-master/*.sdk "$HOME/theos/sdks/"
+            rm -rf sdks.zip "$TMPDIR"
+          fi
+          ls $HOME/theos/sdks
+
+      - name: Install Dependencies
+        run: |
+          brew install ldid dpkg make
+          echo "$(brew --prefix)/opt/make/libexec/gnubin" >> $GITHUB_PATH
+
+      - name: Build Tweak
         run: |
           make clean
-          make package SCHEME=roothide
+          make package FINALPACKAGE=1
 
-      - name: Upload deb
+      - name: Upload DEB
         uses: actions/upload-artifact@v4
         with:
-          name: zdysj-deb-roothide
+          name: zdysj-deb
           path: packages/*.deb

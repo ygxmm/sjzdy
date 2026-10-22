@@ -1,17 +1,14 @@
 TARGET = iphone:clang:latest:14.0
 ARCHS = arm64 arm64e
 
-SCHEME ?= roothide
-ifeq ($(SCHEME),roothide)
-    export THEOS_PACKAGE_SCHEME = roothide
-    export FINALPACKAGE = 1
-else ifeq ($(SCHEME),rootful)
+SCHEME ?= rootless
+ifeq ($(SCHEME),rootful)
     unexport THEOS_PACKAGE_SCHEME
 else ifeq ($(SCHEME),rootless)
     export THEOS_PACKAGE_SCHEME = rootless
     export FINALPACKAGE = 1
 else
-    $(error Unknown SCHEME=$(SCHEME); use rootless, rootful, or roothide)
+    $(error Unknown SCHEME=$(SCHEME); use rootless or rootful)
 endif
 
 export DEBUG = 0
