@@ -52,7 +52,8 @@
         [item setValue:[tapBlock copy] forKey:@"cellTappedBlock"];
 
         // 构造 section
-        id sec = [[secCls alloc] initWithIdentifier:@"ZDYSJ"];
+        id sec = [secCls new];
+        [sec setValue:@"ZDYSJ" forKey:@"identifier"];
         [sec setValue:@"zdysj" forKey:@"title"];
         [sec setValue:@(40.0) forKey:@"sectionHeaderHeight"];
         [sec setValue:@[item] forKey:@"itemArray"];
