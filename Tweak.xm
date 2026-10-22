@@ -13,7 +13,10 @@
         return orig;
     }
     struct timeval tv;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     syscall(SYS_gettimeofday, &tv, NULL);
+#pragma clang diagnostic pop
     NSTimeInterval realNow = (NSTimeInterval)tv.tv_sec + (NSTimeInterval)tv.tv_usec / 1e6;
     if (fabs(orig - realNow) < 60.0) {
         return orig + ([[ZDYSJManager shared] offsetHours] * 3600.0);
