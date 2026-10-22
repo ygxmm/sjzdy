@@ -5,19 +5,37 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache Theos + SDK
+        id: theos-cache
+        uses: actions/cache@v4
+        with:
+          path: $HOME/theos
+          key: theos-${{ runner.os }}-v1
+
+      - name: Cache Homebrew
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: brew-${{ runner.os }}-v1
+
       - name: Setup Theos
+        if: steps.theos-cache.outputs.cache-hit != 'true'
         run: |
           export THEOS=$HOME/theos
-          git clone --recursive https://github.com/theos/theos.git $THEOS
-          echo "THEOS=$THEOS" >> $GITHUB_ENV
+          git clone --recursive --depth 1 https://github.com/theos/theos.git $THEOS
 
       - name: Download iOS SDKs
+        if: steps.theos-cache.outputs.cache-hit != 'true'
         run: |
           if [ -z "$(ls $HOME/theos/sdks 2>/dev/null)" ]; then
             cd $HOME/theos/sdks
@@ -29,10 +47,13 @@ jobs:
           fi
           ls $HOME/theos/sdks
 
-      - name: Install Dependencies
+      - name: Setup Env
         run: |
-          brew install ldid dpkg make
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
           echo "$(brew --prefix)/opt/make/libexec/gnubin" >> $GITHUB_PATH
+
+      - name: Install Dependencies
+        run: brew install ldid dpkg make
 
       - name: Build Tweak
         run: |
