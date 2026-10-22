@@ -1,0 +1,9 @@
+Package: com.zdy.zdysj
+Name: zdysj
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: 时间偏移插件
+Maintainer: zdy
+Author: zdy
+Section: Tweaks
+Depends: mobilesubstrate
