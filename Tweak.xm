@@ -1,29 +1,24 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import "ZDYSJManager.h"
+#include <sys/syscall.h>
+#include <sys/time.h>
 
 // ========== 1. NSDate 时间偏移 ==========
 %hook NSDate
 
 - (NSTimeInterval)timeIntervalSince1970 {
     NSTimeInterval orig = %orig;
-    static int probeCount = 0;
-    if (probeCount < 10) {
-        probeCount++;
-        NSString *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
-        NSString *log = [docs stringByAppendingPathComponent:@"zdysj_probe.log"];
-        NSString *line = [NSString stringWithFormat:@"cls=%s orig=%f enabled=%d offset=%ld\n",
-            object_getClassName(self), orig,
-            [[ZDYSJManager shared] isEnabled],
-            (long)[[ZDYSJManager shared] offsetHours]];
-        NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:log];
-        if (!fh) { [line writeToFile:log atomically:YES encoding:NSUTF8StringEncoding error:nil]; }
-        else { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; [fh closeFile]; }
-    }
     if (![[ZDYSJManager shared] isEnabled]) {
         return orig;
     }
-    return orig + ([[ZDYSJManager shared] offsetHours] * 3600.0);
+    struct timeval tv;
+    syscall(SYS_gettimeofday, &tv, NULL);
+    NSTimeInterval realNow = (NSTimeInterval)tv.tv_sec + (NSTimeInterval)tv.tv_usec / 1e6;
+    if (fabs(orig - realNow) < 60.0) {
+        return orig + ([[ZDYSJManager shared] offsetHours] * 3600.0);
+    }
+    return orig;
 }
 
 %end
