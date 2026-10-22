@@ -17,7 +17,7 @@ INSTALL_TARGET_PROCESSES = Aweme
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = zdysj
-zdysj_FILES = Tweak.xm ZDYSJManager.m ZDYSJSettingViewController.m
+zdysj_FILES = Tweak.xm ZDYSJManager.m ZDYSJSettingViewController.m ZDYSJSettingViewController.m
 zdysj_CFLAGS = -fobjc-arc
 zdysj_FRAMEWORKS = Foundation UIKit
 

@@ -29,39 +29,29 @@ typedef NS_ENUM(NSInteger, ZDYSJSettingItemType) {
 }
 @end
 
-@interface ZDYSJSettingViewController () <UITableViewDataSource, UITableViewDelegate>
+@interface ZDYSJSettingViewController () <UITableViewDelegate, UITableViewDataSource>
 @property (nonatomic, strong) UITableView *tableView;
+@property (nonatomic, strong) NSArray<NSArray<ZDYSJSettingItem *> *> *settingSections;
+@property (nonatomic, strong) NSMutableArray<NSString *> *sectionTitles;
+@property (nonatomic, strong) NSMutableSet *expandedSections;
+@property (nonatomic, strong) UILabel *footerLabel;
 @property (nonatomic, strong) UIVisualEffectView *blurEffectView;
 @property (nonatomic, strong) UIVisualEffectView *vibrancyEffectView;
-@property (nonatomic, strong) NSArray<NSArray<ZDYSJSettingItem *> *> *settingSections;
-@property (nonatomic, strong) NSArray<NSString *> *sectionTitles;
 @end
 
 @implementation ZDYSJSettingViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"zdysj";
-    self.view.backgroundColor = [UIColor clearColor];
+    self.title = @"zdysj设置";
+    self.expandedSections = [NSMutableSet set];
 
+    [self setupAppearance];
     [self setupBlurEffect];
     [self setupTableView];
-    [self setupAppearance];
     [self setupSettingItems];
-
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
-        initWithBarButtonSystemItem:UIBarButtonSystemItemDone
-        target:self
-        action:@selector(dismiss)];
-}
-
-- (void)viewWillDisappear:(BOOL)animated {
-    [self.view endEditing:YES];
-    [super viewWillDisappear:animated];
-}
-
-- (void)dismiss {
-    [self dismissViewControllerAnimated:YES completion:nil];
+    [self setupSectionTitles];
+    [self setupFooterLabel];
 }
 
 - (void)setupAppearance {
@@ -70,6 +60,15 @@ typedef NS_ENUM(NSInteger, ZDYSJSettingItemType) {
     self.navigationController.navigationBar.largeTitleTextAttributes = @{NSForegroundColorAttributeName : [UIColor whiteColor]};
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
     self.navigationController.navigationBar.prefersLargeTitles = YES;
+
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+        target:self
+        action:@selector(dismiss)];
+}
+
+- (void)dismiss {
+    [self dismissViewControllerAnimated:YES completion:nil];
 }
 
 - (void)setupBlurEffect {
@@ -106,107 +105,162 @@ typedef NS_ENUM(NSInteger, ZDYSJSettingItemType) {
 }
 
 - (void)setupSettingItems {
-    self.sectionTitles = @[@"时间偏移", @"关于"];
     self.settingSections = @[
         @[
             [ZDYSJSettingItem itemWithTitle:@"启用时间偏移" key:@"ZDYSJEnabled" type:ZDYSJSettingItemTypeSwitch],
             [ZDYSJSettingItem itemWithTitle:@"偏移小时数" key:@"ZDYSJOffsetHours" type:ZDYSJSettingItemTypeTextField placeholder:@"正数向后，负数向前"],
         ],
-        @[
-            [ZDYSJSettingItem itemWithTitle:@"版本" key:@"ZDYSJVersion" type:ZDYSJSettingItemTypeTextField],
-        ],
     ];
 }
 
-#pragma mark - UITableViewDataSource
+- (void)setupSectionTitles {
+    self.sectionTitles = [NSMutableArray array];
+    for (NSUInteger i = 0; i < self.settingSections.count; i++) {
+        [self.sectionTitles addObject:(i == 0 ? @"时间偏移" : [NSString stringWithFormat:@"分组 %lu", (unsigned long)i])];
+    }
+}
+
+- (void)setupFooterLabel {
+    self.footerLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 50)];
+    self.footerLabel.text = [NSString stringWithFormat:@"zdysj\nVersion: %@", @"1.0.0"];
+    self.footerLabel.textAlignment = NSTextAlignmentCenter;
+    self.footerLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
+    self.footerLabel.textColor = [UIColor colorWithRed:173/255.0 green:216/255.0 blue:230/255.0 alpha:1.0];
+    self.footerLabel.numberOfLines = 2;
+    self.footerLabel.lineBreakMode = NSLineBreakByWordWrapping;
+    self.tableView.tableFooterView = self.footerLabel;
+}
+
+#pragma mark - TableView DataSource
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
     return self.settingSections.count;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return self.settingSections[section].count;
+    return [self.expandedSections containsObject:@(section)] ? self.settingSections[section].count : 0;
 }
 
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    return self.sectionTitles[section];
+- (UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section {
+    UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, tableView.bounds.size.width, 44)];
+
+    UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(15, 0, headerView.bounds.size.width - 50, 44)];
+    titleLabel.text = self.sectionTitles[section];
+    titleLabel.textColor = [UIColor whiteColor];
+    titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
+    [headerView addSubview:titleLabel];
+
+    UIImageView *arrowImageView = [[UIImageView alloc] initWithFrame:CGRectMake(titleLabel.frame.origin.x + titleLabel.frame.size.width - 30, 15, 14, 14)];
+    arrowImageView.image = [UIImage systemImageNamed:[self.expandedSections containsObject:@(section)] ? @"chevron.down" : @"chevron.right"];
+    arrowImageView.tintColor = [UIColor lightGrayColor];
+    arrowImageView.tag = 100;
+    arrowImageView.contentMode = UIViewContentModeScaleAspectFit;
+    [headerView addSubview:arrowImageView];
+
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
+    button.frame = headerView.bounds;
+    button.tag = section;
+    [button addTarget:self action:@selector(headerTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [headerView addSubview:button];
+
+    return headerView;
 }
+
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
+    return 44;
+}
+
+- (void)headerTapped:(UIButton *)sender {
+    NSNumber *section = @(sender.tag);
+    if ([self.expandedSections containsObject:section]) {
+        [self.expandedSections removeObject:section];
+    } else {
+        [self.expandedSections addObject:section];
+    }
+    [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:sender.tag] withRowAnimation:UITableViewRowAnimationFade];
+}
+
+#pragma mark - TableView Cell
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     ZDYSJSettingItem *item = self.settingSections[indexPath.section][indexPath.row];
-    NSString *cellId = [NSString stringWithFormat:@"ZDYSJCell-%ld", (long)item.type];
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellId];
+
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"SettingCell"];
     if (!cell) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:cellId];
-        cell.backgroundColor = [UIColor colorWithWhite:1 alpha:0.05];
-        cell.textLabel.textColor = [UIColor whiteColor];
-        cell.detailTextLabel.textColor = [UIColor colorWithWhite:1 alpha:0.6];
-        cell.selectionStyle = UITableViewCellSelectionStyleDefault;
-        UIView *sel = [[UIView alloc] init];
-        sel.backgroundColor = [UIColor colorWithWhite:1 alpha:0.1];
-        cell.selectedBackgroundView = sel;
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"SettingCell"];
+        cell.textLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        [cell.textLabel.leadingAnchor constraintEqualToAnchor:cell.contentView.leadingAnchor constant:16].active = YES;
+        [cell.textLabel.centerYAnchor constraintEqualToAnchor:cell.contentView.centerYAnchor].active = YES;
+
+        UIView *selBG = [[UIView alloc] init];
+        selBG.backgroundColor = [UIColor colorWithRed:84/255.0 green:84/255.0 blue:84/255.0 alpha:1.0];
+        cell.selectedBackgroundView = selBG;
     }
+
     cell.textLabel.text = item.title;
+    cell.textLabel.textColor = [UIColor whiteColor];
+    cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+    cell.backgroundColor = [UIColor colorWithWhite:1 alpha:0.1];
+    cell.backgroundView = nil;
+
+    if (indexPath.row == [self.settingSections[indexPath.section] count] - 1) {
+        cell.layer.cornerRadius = 10;
+        cell.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
+        cell.layer.masksToBounds = YES;
+    } else {
+        cell.layer.cornerRadius = 0;
+        cell.layer.maskedCorners = 0;
+    }
 
     if (item.type == ZDYSJSettingItemTypeSwitch) {
         UISwitch *sw = [[UISwitch alloc] init];
         sw.on = [[NSUserDefaults standardUserDefaults] boolForKey:item.key];
+        [sw addTarget:self action:@selector(switchToggled:) forControlEvents:UIControlEventValueChanged];
         sw.tag = indexPath.section * 1000 + indexPath.row;
-        [sw addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
         cell.accessoryView = sw;
-        cell.detailTextLabel.text = nil;
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
-    } else {
-        cell.accessoryView = nil;
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-        cell.selectionStyle = UITableViewCellSelectionStyleDefault;
-        if ([item.key isEqualToString:@"ZDYSJVersion"]) {
-            cell.detailTextLabel.text = @"v1.0.0";
-            cell.accessoryType = UITableViewCellAccessoryNone;
-            cell.selectionStyle = UITableViewCellSelectionStyleNone;
-        } else if ([item.key isEqualToString:@"ZDYSJOffsetHours"]) {
-            NSInteger h = [[ZDYSJManager shared] offsetHours];
-            cell.detailTextLabel.text = [NSString stringWithFormat:@"%ld 小时", (long)h];
-        }
+    } else if (item.type == ZDYSJSettingItemTypeTextField) {
+        UITextField *tf = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, 100, 30)];
+        tf.borderStyle = UITextBorderStyleRoundedRect;
+        tf.placeholder = item.placeholder;
+        tf.attributedPlaceholder = [[NSAttributedString alloc] initWithString:item.placeholder ?: @"" attributes:@{NSForegroundColorAttributeName : [UIColor lightGrayColor]}];
+        NSInteger h = [[NSUserDefaults standardUserDefaults] integerForKey:item.key];
+        tf.text = [NSString stringWithFormat:@"%ld", (long)h];
+        tf.keyboardType = UIKeyboardTypeNumbersAndPunctuation;
+        tf.textAlignment = NSTextAlignmentRight;
+        tf.backgroundColor = [UIColor colorWithWhite:1 alpha:0.1];
+        tf.textColor = [UIColor whiteColor];
+        [tf addTarget:self action:@selector(textFieldDidEndEditing:) forControlEvents:UIControlEventEditingDidEnd];
+        tf.tag = indexPath.section * 1000 + indexPath.row;
+        cell.accessoryView = tf;
     }
+
     return cell;
 }
 
-#pragma mark - UITableViewDelegate
-
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    ZDYSJSettingItem *item = self.settingSections[indexPath.section][indexPath.row];
-    if ([item.key isEqualToString:@"ZDYSJVersion"]) return;
-    if (item.type == ZDYSJSettingItemTypeSwitch) return;
-
-    if ([item.key isEqualToString:@"ZDYSJOffsetHours"]) {
-        NSInteger current = [[ZDYSJManager shared] offsetHours];
-        UIAlertController *alert = [UIAlertController
-            alertControllerWithTitle:item.title
-            message:item.placeholder
-            preferredStyle:UIAlertControllerStyleAlert];
-        [alert addTextFieldWithConfigurationHandler:^(UITextField *tf) {
-            tf.keyboardType = UIKeyboardTypeNumbersAndPunctuation;
-            tf.placeholder = item.placeholder;
-            tf.text = [NSString stringWithFormat:@"%ld", (long)current];
-        }];
-        [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
-        [alert addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-            NSString *s = alert.textFields.firstObject.text;
-            [[ZDYSJManager shared] setOffsetHours:[s integerValue]];
-            [tableView reloadRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationNone];
-        }]];
-        [self presentViewController:alert animated:YES completion:nil];
-    }
+- (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
+    CGFloat sectionInset = 16;
+    cell.contentView.frame = UIEdgeInsetsInsetRect(cell.contentView.frame, UIEdgeInsetsMake(0, sectionInset, 0, sectionInset));
 }
 
-- (void)switchChanged:(UISwitch *)sw {
+#pragma mark - Actions
+
+- (void)switchToggled:(UISwitch *)sw {
     NSInteger section = sw.tag / 1000;
     NSInteger row = sw.tag % 1000;
     ZDYSJSettingItem *item = self.settingSections[section][row];
     [[NSUserDefaults standardUserDefaults] setBool:sw.on forKey:item.key];
     [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+- (void)textFieldDidEndEditing:(UITextField *)tf {
+    NSInteger section = tf.tag / 1000;
+    NSInteger row = tf.tag % 1000;
+    ZDYSJSettingItem *item = self.settingSections[section][row];
+    NSInteger val = [tf.text integerValue];
+    [[NSUserDefaults standardUserDefaults] setInteger:val forKey:item.key];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+    tf.text = [NSString stringWithFormat:@"%ld", (long)val];
 }
 
 @end
