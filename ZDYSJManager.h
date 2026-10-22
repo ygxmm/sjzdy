@@ -1,5 +1,7 @@
 #import <Foundation/Foundation.h>
 
+#import "ZDYSJSettingViewController.h"
+
 @interface ZDYSJManager : NSObject
 + (instancetype)shared;
 + (void)presentSettings;

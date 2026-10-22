@@ -32,38 +32,14 @@ static NSString *const kZDYSJOffsetHours = @"ZDYSJOffsetHours";
         root = root.presentedViewController;
     }
 
-    ZDYSJManager *mgr = [ZDYSJManager shared];
-    BOOL enabled = [mgr isEnabled];
-    NSInteger hours = [mgr offsetHours];
-
-    NSString *msg = enabled
-        ? [NSString stringWithFormat:@"当前：已启用，偏移 %ld 小时", (long)hours]
-        : @"当前：已禁用";
-
-    UIAlertController *alert = [UIAlertController
-        alertControllerWithTitle:@"zdysj 时间偏移"
-        message:msg
-        preferredStyle:UIAlertControllerStyleAlert];
-
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *tf) {
-        tf.placeholder = @"偏移小时数（如 8 或 -8）";
-        tf.keyboardType = UIKeyboardTypeNumbersAndPunctuation;
-        tf.text = [NSString stringWithFormat:@"%ld", (long)hours];
-    }];
-
-    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
-
-    [alert addAction:[UIAlertAction actionWithTitle:@"禁用" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) {
-        [[ZDYSJManager shared] setEnabled:NO];
-    }]];
-
-    [alert addAction:[UIAlertAction actionWithTitle:@"启用" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-        NSString *s = alert.textFields.firstObject.text;
-        [[ZDYSJManager shared] setOffsetHours:[s integerValue]];
-        [[ZDYSJManager shared] setEnabled:YES];
-    }]];
-
-    [root presentViewController:alert animated:YES completion:nil];
+    ZDYSJSettingViewController *vc = [[ZDYSJSettingViewController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    if (UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad) {
+        nav.modalPresentationStyle = UIModalPresentationFormSheet;
+    } else {
+        nav.modalPresentationStyle = UIModalPresentationPageSheet;
+    }
+    [root presentViewController:nav animated:YES completion:nil];
 }
 
 - (BOOL)isEnabled {
