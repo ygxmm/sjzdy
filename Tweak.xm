@@ -25,27 +25,26 @@ static double ZDYSJRealNow(void) {
     return tv.tv_sec + tv.tv_usec / 1e6;
 }
 
-// 1. -timeIntervalSince1970
+// ========== NSDate：单一段，同时 hook 实例和类方法 ==========
 %hook NSDate
+
 - (NSTimeInterval)timeIntervalSince1970 {
     NSTimeInterval orig = %orig;
     ZDYSJProbe(@"-timeInterval", orig, ZDYSJRealNow());
     if (![[ZDYSJManager shared] isEnabled]) return orig;
     return orig + ([[ZDYSJManager shared] offsetHours] * 3600.0);
 }
-%end
 
-// 2. +[NSDate date]
-%hook NSDate
 + (id)date {
     id d = %orig;
     NSTimeInterval t = [d timeIntervalSince1970];
     ZDYSJProbe(@"+date", t, ZDYSJRealNow());
     return d;
 }
+
 %end
 
-// 3. CFAbsoluteTimeGetCurrent
+// ========== C API ==========
 static CFTimeInterval (*orig_CFA)(void);
 CFTimeInterval hook_CFA(void) {
     CFTimeInterval t = orig_CFA();
@@ -54,7 +53,6 @@ CFTimeInterval hook_CFA(void) {
     return t + ([[ZDYSJManager shared] offsetHours] * 3600.0);
 }
 
-// 4. gettimeofday
 static int (*orig_gtod)(struct timeval *, void *);
 int hook_gtod(struct timeval *tp, void *tz) {
     int r = orig_gtod(tp, tz);
