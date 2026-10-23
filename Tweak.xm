@@ -1,66 +1,69 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#import <sys/time.h>
+#import <dlfcn.h>
 #import "ZDYSJManager.h"
 
-// ========== 1. NSDate 时间偏移 ==========
-%hook NSDate
+static void ZDYSJProbe(NSString *tag, double orig, double realNow) {
+    static int cnt = 0;
+    if (cnt >= 30) return;
+    cnt++;
+    NSString *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+    NSString *log = [docs stringByAppendingPathComponent:@"zdysj_probe.log"];
+    NSString *line = [NSString stringWithFormat:@"%@ orig=%.3f real=%.3f diff=%.1f enabled=%d offset=%ld\n",
+        tag, orig, realNow, orig - realNow,
+        [[ZDYSJManager shared] isEnabled],
+        (long)[[ZDYSJManager shared] offsetHours]];
+    NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:log];
+    if (!fh) { [line writeToFile:log atomically:YES encoding:NSUTF8StringEncoding error:nil]; }
+    else { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; [fh closeFile]; }
+}
 
+static double ZDYSJRealNow(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec + tv.tv_usec / 1e6;
+}
+
+// 1. -timeIntervalSince1970
+%hook NSDate
 - (NSTimeInterval)timeIntervalSince1970 {
     NSTimeInterval orig = %orig;
+    ZDYSJProbe(@"-timeInterval", orig, ZDYSJRealNow());
     if (![[ZDYSJManager shared] isEnabled]) return orig;
     return orig + ([[ZDYSJManager shared] offsetHours] * 3600.0);
 }
-
 %end
 
-// ========== 2. 注入抖音原生设置页 ==========
-%hook AWESettingsViewModel
+// 2. +[NSDate date]
+%hook NSDate
++ (id)date {
+    id d = %orig;
+    NSTimeInterval t = [d timeIntervalSince1970];
+    ZDYSJProbe(@"+date", t, ZDYSJRealNow());
+    return d;
+}
+%end
 
-- (NSArray *)sectionDataArray {
-    NSArray *orig = %orig;
-
-    // 防重复：用 sectionHeaderTitle 判断（40.7 的 SectionModel 没有 identifier 属性）
-    @try {
-        for (id s in orig) {
-            if ([[s valueForKey:@"sectionHeaderTitle"] isEqualToString:@"zdysj"]) {
-                return orig;
-            }
-        }
-    } @catch (NSException *e) {}
-
-    @try {
-        Class itemCls = NSClassFromString(@"AWESettingItemModel");
-        Class secCls = NSClassFromString(@"AWESettingSectionModel");
-        if (!itemCls || !secCls) return orig;
-
-        // item 有 identifier 属性，可以用
-        id item = [itemCls new];
-        [item setValue:@"ZDYSJSetting" forKey:@"identifier"];
-        [item setValue:@"zdysj 时间偏移" forKey:@"title"];
-        [item setValue:@"clock" forKey:@"svgIconImageName"];
-        [item setValue:@(1) forKey:@"cellType"];
-        [item setValue:@YES forKey:@"isEnable"];
-
-        void (^tapBlock)(void) = ^{
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [ZDYSJManager presentSettings];
-            });
-        };
-        [item setValue:[tapBlock copy] forKey:@"cellTappedBlock"];
-
-        // section 没有 identifier 属性，用 sectionHeaderTitle 去重
-        id sec = [secCls new];
-        [sec setValue:@"zdysj" forKey:@"sectionHeaderTitle"];
-        [sec setValue:@(40.0) forKey:@"sectionHeaderHeight"];
-        [sec setValue:@[item] forKey:@"itemArray"];
-
-        NSMutableArray *r = [orig mutableCopy];
-        [r insertObject:sec atIndex:0];
-        return r;
-    } @catch (NSException *e) {
-        NSLog(@"[zdysj] inject error: %@", e);
-    }
-    return orig;
+// 3. CFAbsoluteTimeGetCurrent
+static CFTimeInterval (*orig_CFA)(void);
+CFTimeInterval hook_CFA(void) {
+    CFTimeInterval t = orig_CFA();
+    ZDYSJProbe(@"CFAbsoluteTime", t, ZDYSJRealNow());
+    if (![[ZDYSJManager shared] isEnabled]) return t;
+    return t + ([[ZDYSJManager shared] offsetHours] * 3600.0);
 }
 
-%end
+// 4. gettimeofday
+static int (*orig_gtod)(struct timeval *, void *);
+int hook_gtod(struct timeval *tp, void *tz) {
+    int r = orig_gtod(tp, tz);
+    if (tp) ZDYSJProbe(@"gettimeofday", tp->tv_sec + tp->tv_usec/1e6, ZDYSJRealNow());
+    return r;
+}
+
+%ctor {
+    void *cfa = dlsym(RTLD_DEFAULT, "CFAbsoluteTimeGetCurrent");
+    if (cfa) MSHookFunction(cfa, (void *)hook_CFA, (void **)&orig_CFA);
+    MSHookFunction((void *)gettimeofday, (void *)hook_gtod, (void **)&orig_gtod);
+}
